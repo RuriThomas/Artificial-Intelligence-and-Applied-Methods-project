@@ -1,17 +1,47 @@
 import requests
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
+import re
 url = 'https://www.british-history.ac.uk'
 
-def has_table_of_contents(soup):
+def is_table_of_contents(soup):
     h2_headers = soup.find_all('h2')
     for header in h2_headers:
         if header.get_text(strip=True) == "Table of Contents":
             return True
     return False
+
+def check_pagination(base_url, headers=None):
+    page = 0
+    has_more_pages = True
+    links = [] 
+    
+    while has_more_pages:
+        url = f"{base_url}?page={page}"
+        print(f"Checking: {url}")
+        
+        response = requests.get(url, headers=headers)
+        
+        soup = BeautifulSoup(response.content, 'html.parser')
+        rows = soup.select('table:first-of-type tr')
+        if rows!=None:
+            for row in rows:
+                columns = row.find_all('td')
+                if columns:
+                    link = columns[0].find('a')['href'].strip()
+                    links.append(link)
+            next_button = soup.find('a', {'class': 'page-link', 'rel': 'next', 'title': 'Go to next page'}) 
+            if not next_button:
+                print("No next button found.")
+                has_more_pages = False
+        else:
+            has_more_pages = False
+        page += 1
+
+    return links
+
 def isDirectory(directory,soup):
-    return "/series/" in directory or "catalogue" in directory or has_table_of_contents(soup)
+    return "/series/" in directory or "catalogue" in directory or is_table_of_contents(soup)
 
 def load_data(headers, directory):
     full_url = url + directory
@@ -20,32 +50,36 @@ def load_data(headers, directory):
     soup = BeautifulSoup(response.content, 'html.parser')
     
     catalogue_entries = []
+    links = []
 
     # If the current directory is an article, process it directly
     if not isDirectory(directory,soup):
-        print("Found an article")
         title_elem = soup.find('div', {'id': 'block-bho-page-title'})
         content_elem = soup.find('div', {'class': 'inner'})
         if title_elem and content_elem:
             title = title_elem.get_text(strip=True)
-            content = content_elem.get_text(strip=True)
-            return [{'Title': title, 'Content': content}]
-    # Otherwise, parse the directory for links to entries or sub-directories
+            paragraphs = content_elem.find_all('p')
+            content = "\n\n".join(p.get_text(strip=True) for p in paragraphs)
+            clean_content = re.sub(r'\s+', ' ', content).strip()
+            return [{'Title': title, 'Content': clean_content}]
+        
+    # If it is a search page, save link to volume(s)
     if "/series/" in directory:
         print("")
     else:
-        rows = soup.select('table:first-of-type tr')
-        links = []
-        print("Found a directory")
-        for row in rows:
-            columns = row.find_all('td')
-            if columns:
-                link = columns[0].find('a')['href'].strip()
-                print(link)
-                links.append(link)
+        # If it is table of contents save links in all pages
+        if is_table_of_contents(soup):
+            links.extend(check_pagination(full_url,headers))
+        else:
+            rows = soup.select('table:first-of-type tr')
+            for row in rows:
+                columns = row.find_all('td')
+                if columns:
+                    link = columns[0].find('a')['href'].strip()
+                    links.append(link)
 
     # Use multithreading to process each link concurrently
-    with ThreadPoolExecutor(max_workers=5) as executor:
+    with ThreadPoolExecutor(max_workers=10) as executor:
         futures = {executor.submit(load_data, headers, link): link for link in links}
         for future in as_completed(futures):
             try:
