@@ -63,9 +63,13 @@ def load_data(headers, directory):
             clean_content = re.sub(r'\s+', ' ', content).strip()
             return [{'Title': title, 'Content': clean_content}]
         
-    # If it is a search page, save link to volume(s)
+    # If it is a search page, save links to volume(s)
     if "/series/" in directory:
-        print("")
+        results = soup.find_all('div', class_='views-field views-field-title')
+        for result in results:
+            title_tag = result.find('a')
+            link = title_tag['href']
+            links.append(link)
     else:
         # If it is table of contents save links in all pages
         if is_table_of_contents(soup):

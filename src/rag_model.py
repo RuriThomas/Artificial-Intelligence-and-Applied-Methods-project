@@ -27,7 +27,7 @@ class RAGModel:
     def generate_response(self, query, context):
         input_text = f"Context: {context}\n\nQuestion: {query}\n\nAnswer:"
         inputs = self.gen_tokenizer.encode(input_text, return_tensors="pt", truncation=True)
-        outputs = self.gen_model.generate(inputs, max_length=200, num_beams=3)
+        outputs = self.gen_model.generate(inputs, max_length=100, temperature=0.7,top_k=50)
         return self.gen_tokenizer.decode(outputs[0], skip_special_tokens=True)
     
     def process_query(self,query,data):
