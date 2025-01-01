@@ -1,4 +1,5 @@
 from src.data import load_data
+from src.data import saveLocal
 from src.rag_model import RAGModel
 
 def main():
@@ -7,6 +8,7 @@ def main():
     headers = {'User-Agent': 'Mozilla/5.0'}
     catalogue_url = '/catalogue/period/18th%20century/region/London/source_type/Primary%20sources/subject/Economic'
     data = load_data(headers,catalogue_url)
+    saveLocal(catalogue_url,data)
     query = input("Enter your query: ")
     response = rag.process_query(query, data)
     print(f"Response: {response}")
