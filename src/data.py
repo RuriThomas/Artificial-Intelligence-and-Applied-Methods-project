@@ -2,7 +2,11 @@ import requests
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import re
+import hashlib
+import os
+import csv
 url = 'https://www.british-history.ac.uk'
+csv.field_size_limit(2147483647)
 
 def is_table_of_contents(soup):
     h2_headers = soup.find_all('h2')
@@ -43,8 +47,36 @@ def check_pagination(base_url, headers=None):
 def isDirectory(directory,soup):
     return "/series/" in directory or "catalogue" in directory or is_table_of_contents(soup)
 
+
+def getLocal(path):
+    with open(path, 'r', encoding='utf-8') as file:
+        reader = csv.DictReader(file)
+        return [row for row in reader]
+
+def saveLocal(dir,data):
+    full_url = url + dir
+    storage_dir = "dataset"
+    hashed_filename = hashlib.sha256(full_url.encode()).hexdigest()
+    path_name = os.path.join(storage_dir,hashed_filename)
+    if os.path.exists(path_name):
+        print(f"Data for {full_url} already stored at {path_name}")
+    
+    with open(path_name, 'w', newline='', encoding='utf-8') as file:
+        writer = csv.DictWriter(file, ["Title", "Content"], quoting=csv.QUOTE_MINIMAL)
+        writer.writeheader()
+        writer.writerows(data)
+
 def load_data(headers, directory):
     full_url = url + directory
+    storage_dir = "dataset"
+    hashed_filename = hashlib.sha256(full_url.encode()).hexdigest()
+    path_name = os.path.join(storage_dir,hashed_filename)
+    if os.path.exists(path_name):
+        print(f"Data for {full_url} already stored at {path_name}")
+        return getLocal(path_name)
+    print(f"Fetching data at {full_url}")
+    
+
     response = requests.get(full_url, headers=headers)
     response.raise_for_status()
     soup = BeautifulSoup(response.content, 'html.parser')
@@ -92,7 +124,6 @@ def load_data(headers, directory):
                     catalogue_entries.extend(entries)
             except Exception as e:
                 print(f"Error processing {futures[future]}: {e}")
-    
     return catalogue_entries
     
     
