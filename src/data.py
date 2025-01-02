@@ -125,6 +125,8 @@ def load_data(headers, directory):
             except Exception as e:
                 print(f"Error processing {futures[future]}: {e}")
     return catalogue_entries
+
+
     
     
 

@@ -1,5 +1,4 @@
-from src.data import load_data
-from src.data import saveLocal
+from src.data import load_data, saveLocal
 from src.rag_model import RAGModel
 
 def main():
@@ -9,8 +8,9 @@ def main():
     catalogue_url = '/catalogue/period/18th%20century/region/London/source_type/Primary%20sources/subject/Economic'
     data = load_data(headers,catalogue_url)
     saveLocal(catalogue_url,data)
+    rag.precompute_embedding(data,"test")
     query = input("Enter your query: ")
-    response = rag.process_query(query, data)
+    response = rag.process_query(query, "test")
     print(f"Response: {response}")
 
 if __name__ == '__main__':
