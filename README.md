@@ -1,1 +1,3 @@
-# Artificial-Intelligence-and-Applied-Methods-project
+To run the code open the cloned folder in a code editor of your choice and run main.py. You will be asked for a file path to save the precomputed embedding and then you can start asking the model questions. To exit the model just type Ctrl + C.
+Advanced settings:
+If you want to modify the dataset that the RAG model is using as context, open main.py and specify different filters in the webpage British History Online (https://www.british-history.ac.uk/catalogue). You must not copy paste the whole URL but remove "https://www.british-history.ac.uk" and modify the value of catalogue_url in main.py, which should always start with "/catalogue/".
