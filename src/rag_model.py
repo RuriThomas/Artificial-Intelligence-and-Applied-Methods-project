@@ -47,7 +47,8 @@ class RAGModel:
         words = text.split()
         text = " ".join([word for word in words if word not in self.stopwords])
         return text
-    def extractDataIntoText(self,data):
+
+    def extractDataIntoText(self,data): # Cannot chunk because it makes the embeding takes ages
         return [f"{entry['Title']}: {entry['Content']}" for entry in data]
         
     def precompute_embedding(self, data, save_path):
@@ -55,6 +56,7 @@ class RAGModel:
             return
         context_texts = self.extractDataIntoText(data)
         context_embeddings = self.embed_texts(context_texts)
+        print("saving...")
         with open(save_path, "wb") as f:
             pickle.dump({"texts": context_texts, "embeddings": context_embeddings.numpy()}, f)
     
@@ -64,3 +66,8 @@ class RAGModel:
         context_texts = data["texts"]
         context_embeddings = torch.tensor(data["embeddings"])
         return context_texts, context_embeddings
+    
+    def chunk_text(self, text, chunk_size=300):
+        words = text.split()
+        return [" ".join(words[i:i + chunk_size]) for i in range(0, len(words), chunk_size)]
+
