@@ -8,10 +8,12 @@ def main():
     catalogue_url = '/vch/berks/vol4'
     data = load_data(headers,catalogue_url)
     saveLocal(catalogue_url,data)
-    rag.precompute_embedding(data,"test2")
-    query = input("Enter your query: ")
-    response = rag.process_query(query, "test2")
-    print(f"Response: {response}")
+    save_path = input("Enter save location of precomputed embeding: ")
+    rag.precompute_embedding(data,save_path)
+    while True:
+        query = input("Enter your query: ")
+        response = rag.process_query(query, save_path)
+        print(f"Response: {response}")
 
 if __name__ == '__main__':
 	main()
