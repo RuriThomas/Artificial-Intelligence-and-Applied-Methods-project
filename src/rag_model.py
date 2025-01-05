@@ -2,9 +2,15 @@ from traitlets import This
 from transformers import AutoTokenizer, AutoModel, AutoModelForSeq2SeqLM
 from sklearn.metrics.pairwise import cosine_similarity
 import torch
-from nltk.corpus import stopwords
+from nltk.corpus import stopwords, wordnet
+from nltk.stem import PorterStemmer, WordNetLemmatizer
 import pickle
 import os
+from faiss import IndexFlatL2
+import nltk
+nltk.download('wordnet')
+nltk.download('omw-1.4')
+from nltk import pos_tag
 
 class RAGModel:
     def __init__(self, embedding_model_name, generation_model_name):
@@ -13,6 +19,7 @@ class RAGModel:
         self.gen_tokenizer = AutoTokenizer.from_pretrained(generation_model_name)
         self.gen_model =  AutoModelForSeq2SeqLM.from_pretrained(generation_model_name)
         self.stopwords = set(stopwords.words('english'))
+        self.faiss_index = None
 
 
     def embed_texts(self,texts):
@@ -25,9 +32,8 @@ class RAGModel:
 
     def retrieve_context(self, query, context_texts, context_embeddings, top_k=3):
         query_embedding = self.embed_texts([query])
-        similarities = cosine_similarity(query_embedding, context_embeddings).flatten()
-        top_indices = similarities.argsort()[-top_k:][::-1]
-        return [context_texts[i] for i in top_indices]
+        _, indices = self.faiss_index.search(query_embedding.numpy(), top_k)
+        return [context_texts[i] for i in indices.flatten()]
 
     def generate_response(self, query, context):
         input_text = f"Context: {context}\n\nQuestion: {query}\n\nAnswer:"
@@ -42,10 +48,34 @@ class RAGModel:
         response = self.generate_response(query, combined_context)
         return response
     
+    def get_wordnet_pos(self, word):
+        tag = pos_tag([word])[0][1][0].upper()
+        tag_dict = {
+            "J": wordnet.ADJ,
+            "N": wordnet.NOUN,
+            "V": wordnet.VERB,
+            "R": wordnet.ADV
+        }
+        return tag_dict.get(tag, wordnet.NOUN)
+
+    def apply_lemmatization(self,text):
+        lemmatizer = WordNetLemmatizer()
+        words = text.split()
+        lemmatized_words = [lemmatizer.lemmatize(word, self.get_wordnet_pos(word)) for word in words]
+        return " ".join(lemmatized_words)
+        
+    def apply_stemming(self, text):
+        stemmer = PorterStemmer()
+        words = text.split()
+        stemmed_words = [stemmer.stem(word) for word in words]
+        return " ".join(stemmed_words)
+    
     def normalize_text(self,text):
         text = " ".join(text.split())
         words = text.split()
         text = " ".join([word for word in words if word not in self.stopwords])
+        #text = self.apply_stemming(text)
+        #text = self.apply_lemmatization(text)
         return text
 
     def extractDataIntoText(self,data): # Cannot chunk because it makes the embeding takes ages
@@ -56,6 +86,8 @@ class RAGModel:
             return
         context_texts = self.extractDataIntoText(data)
         context_embeddings = self.embed_texts(context_texts)
+        self.faiss_index = IndexFlatL2(context_embeddings.shape[1])
+        self.faiss_index.add(context_embeddings.numpy())
         print("saving...")
         with open(save_path, "wb") as f:
             pickle.dump({"texts": context_texts, "embeddings": context_embeddings.numpy()}, f)
