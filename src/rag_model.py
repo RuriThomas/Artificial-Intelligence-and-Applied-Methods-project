@@ -10,6 +10,7 @@ from faiss import IndexFlatL2
 import nltk
 nltk.download('wordnet')
 nltk.download('omw-1.4')
+nltk.download('stopwords')
 from nltk import pos_tag
 
 class RAGModel:
